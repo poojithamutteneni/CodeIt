@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodeIT - Evaluator</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>CodeIT - Evaluator</h1>
+        
+        <!-- Prompt Input -->
+        <textarea id="prompt" placeholder="Enter your prompt here"></textarea>
+        
+        <!-- Model Selection -->
+        <div class="model-options">
+            <label>
+                <input type="radio" name="model" value="model1" required> 
+                <span class="futuristic-radio">OpenAI-CODEX</span>
+            </label>
+            <label>
+                <input type="radio" name="model" value="model2"> 
+                <span class="futuristic-radio">Mistral7B</span>
+            </label>
+            <label>
+                <input type="radio" name="model" value="codegen"> 
+                <span class="futuristic-radio">Codegen-350M-mono</span>
+            </label>
+            <label>
+                <input type="radio" name="model" value="codegen"> 
+                <span class="futuristic-radio">Codegemma-2b</span>
+            </label>
+        </div>
+        
+        <!-- Run Button -->
+        <button id="run-btn">Run</button>
+
+        <!-- Output Section -->
+        <div id="output-section" style="display: none;">
+            <h3>Generated Code:</h3>
+            <textarea id="output" readonly></textarea>
+
+            <!-- Evaluation Button -->
+            <button id="evaluate-btn">Evaluate</button>
+
+            <!-- Evaluation Results -->
+            <div id="evaluation-results" style="display: none;">
+                <p><strong>CodeBERT Semantic Score:</strong> <span id="quality-score"></span></p>
+                <p><strong>Execution Time:</strong> <span id="execution-time"></span> miliseconds</p>
+                <p><strong>Pylint Score:</strong> <span id="pylint-score"></span></p>
+                <p><strong>Flake8 Score:</strong> <span id="flake8-score"></span>%</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Handle the "Run" button click
+        document.getElementById('run-btn').addEventListener('click', async () => {
+            const prompt = document.getElementById('prompt').value;
+            const model = document.querySelector('input[name="model"]:checked')?.value;
+
+            if (!prompt || !model) {
+                alert('Please enter a prompt and select a model.');
+                return;
+            }
+
+            // Send request to Flask backend for code generation
+            const response = await fetch('/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt, model })
+            });
+
+            const data = await response.json();
+
+            if (data.code) {
+                document.getElementById('output-section').style.display = 'block';
+                document.getElementById('output').value = data.code;
+            } else {
+                alert(data.error || 'Failed to generate code.');
+            }
+        });
+
+        document.getElementById('evaluate-btn').addEventListener('click', async () => {
+    const code = document.getElementById('output').value;
+
+    if (!code) {
+        alert('No code available for evaluation.');
+        return;
+    }
+
+    try {
+        // Send request to Flask backend for evaluation
+        const response = await fetch('/evaluate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            // Ensure all data is available and update the DOM
+            if (data.quality_score !== undefined && data.execution_time !== undefined) {
+                document.getElementById('evaluation-results').style.display = 'block';
+                document.getElementById('quality-score').textContent = data.quality_score.toFixed(4);
+                document.getElementById('execution-time').textContent = data.execution_time.toFixed(2);
+                document.getElementById('pylint-score').textContent = data.pylint_score || "No pylint score found.";
+                document.getElementById('flake8-score').textContent = data.flake8_score.toFixed(2);
+            } else {
+                alert("Missing evaluation data in response!");
+            }
+        } else {
+            // Handle errors from backend
+            alert(data.error || "Evaluation failed. Please try again.");
+        }
+    } catch (error) {
+        console.error("Error while evaluating code:", error);
+        alert("An unexpected error occurred during evaluation.");
+    }
+});
+
+    </script>
+</body>
+</html>
